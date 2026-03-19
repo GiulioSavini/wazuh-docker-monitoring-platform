@@ -1,0 +1,21 @@
+---
+# SUSE Linux Enterprise / openSUSE
+
+- name: Import Wazuh GPG key
+  ansible.builtin.rpm_key:
+    key: "{{ wazuh_repo_gpg_key }}"
+    state: present
+
+- name: Add Wazuh repository
+  ansible.builtin.zypper_repository:
+    name: wazuh
+    repo: "https://packages.wazuh.com/4.x/yum/"
+    state: present
+    auto_import_keys: true
+
+- name: Install Wazuh agent
+  community.general.zypper:
+    name: "wazuh-agent-{{ wazuh_agent_version }}"
+    state: present
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_manager_ip }}"

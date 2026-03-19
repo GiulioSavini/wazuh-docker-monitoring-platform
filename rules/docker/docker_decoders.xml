@@ -1,0 +1,17 @@
+<!--
+  Custom Decoders — Docker daemon JSON logs
+  These decoders parse Docker daemon events forwarded as JSON.
+-->
+
+<!-- Parent decoder for Docker daemon JSON events -->
+<decoder name="docker-daemon-json">
+  <prematch>^{"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<!-- Child decoder: extract container name and action from Docker events -->
+<decoder name="docker-event-fields">
+  <parent>docker-daemon-json</parent>
+  <regex offset="after_parent">action":"(\S+)".*name":"(\S+)"</regex>
+  <order>docker.action,docker.Actor.Attributes.name</order>
+</decoder>

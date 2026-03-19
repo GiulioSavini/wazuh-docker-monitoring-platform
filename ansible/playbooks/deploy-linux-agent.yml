@@ -1,0 +1,51 @@
+---
+# Deploy Wazuh Agent to Linux servers
+# Usage: ansible-playbook -i inventories/production playbooks/deploy-linux-agent.yml
+#
+# Options:
+#   --limit web-prod-01          Deploy to a single host
+#   --tags install               Only run install tasks
+#   --ask-vault-pass             Prompt for vault password
+#   -e wazuh_agent_version=4.9.0 Override agent version
+
+- name: Deploy Wazuh agent on Linux servers
+  hosts: linux_servers:docker_hosts
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - wazuh_manager_ip is defined
+          - wazuh_manager_ip | length > 0
+          - wazuh_registration_password is defined
+          - wazuh_registration_password | length > 0
+        fail_msg: "Required variables wazuh_manager_ip and wazuh_registration_password must be set"
+
+    - name: Check connectivity to Wazuh manager
+      ansible.builtin.wait_for:
+        host: "{{ wazuh_manager_ip }}"
+        port: "{{ wazuh_manager_port }}"
+        timeout: 10
+      ignore_errors: true
+      register: manager_check
+
+    - name: Warn if manager is unreachable
+      ansible.builtin.debug:
+        msg: "WARNING: Wazuh manager {{ wazuh_manager_ip }}:{{ wazuh_manager_port }} is not reachable. Agent will be installed but may not connect."
+      when: manager_check is failed
+
+  roles:
+    - role: wazuh-agent-linux
+
+  post_tasks:
+    - name: Display agent status
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control info
+      register: agent_info
+      changed_when: false
+
+    - name: Show agent info
+      ansible.builtin.debug:
+        var: agent_info.stdout_lines

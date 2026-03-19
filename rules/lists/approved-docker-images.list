@@ -1,0 +1,13 @@
+# CDB List: Approved Docker images
+# Containers using images NOT in this list can trigger alerts.
+#
+# Format: key:value (image_name:owner)
+# Usage in rules:
+#   <list field="docker.Actor.Attributes.image" lookup="not_address_match_key">etc/lists/approved-docker-images</list>
+
+wazuh/wazuh-manager:official
+wazuh/wazuh-indexer:official
+wazuh/wazuh-dashboard:official
+nginx:infrastructure
+postgres:database
+redis:cache

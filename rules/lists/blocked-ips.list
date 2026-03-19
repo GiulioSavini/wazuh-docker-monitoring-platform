@@ -1,0 +1,17 @@
+# CDB List: Known malicious IPs
+# Format: key:value (IP:description)
+# Wazuh checks incoming events against this list for fast lookups.
+#
+# Usage in rules:
+#   <list field="srcip" lookup="address_match_key">etc/lists/blocked-ips</list>
+#
+# Rebuild after editing:
+#   docker exec wazuh-manager /var/ossec/bin/wazuh-control restart
+#
+# Sources: add IPs from threat intel feeds, incident response, etc.
+# This is a starter list — maintain and update regularly.
+
+# Example entries (uncomment and replace with your own):
+# 203.0.113.50:scanner
+# 198.51.100.23:bruteforce
+# 192.0.2.100:c2-server

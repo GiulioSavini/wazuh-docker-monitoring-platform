@@ -1,0 +1,56 @@
+---
+# Wazuh Agent Windows — Download, install, configure, register
+
+- name: Check if Wazuh agent is already installed
+  ansible.windows.win_service:
+    name: WazuhSvc
+  register: wazuh_svc
+  ignore_errors: true
+
+- name: Create temp directory for installer
+  ansible.windows.win_file:
+    path: C:\Temp\wazuh
+    state: directory
+  when: wazuh_svc is failed
+
+- name: Download Wazuh agent MSI
+  ansible.windows.win_get_url:
+    url: "{{ wazuh_windows_msi_url }}"
+    dest: C:\Temp\wazuh\wazuh-agent.msi
+    force: false
+  when: wazuh_svc is failed
+
+- name: Install Wazuh agent
+  ansible.windows.win_package:
+    path: C:\Temp\wazuh\wazuh-agent.msi
+    arguments:
+      - /q
+      - WAZUH_MANAGER={{ wazuh_manager_ip }}
+      - WAZUH_REGISTRATION_PASSWORD={{ wazuh_registration_password }}
+      - WAZUH_AGENT_GROUP={{ wazuh_agent_groups }}
+    state: present
+  no_log: true
+  when: wazuh_svc is failed
+
+- name: Deploy agent configuration
+  ansible.windows.win_template:
+    src: ossec-agent-windows.conf.j2
+    dest: '{{ wazuh_windows_install_dir }}\ossec.conf'
+  notify: restart wazuh-agent-windows
+
+- name: Ensure Wazuh agent service is running
+  ansible.windows.win_service:
+    name: WazuhSvc
+    state: started
+    start_mode: auto
+
+- name: Verify agent service status
+  ansible.windows.win_service:
+    name: WazuhSvc
+  register: wazuh_status
+  failed_when: wazuh_status.state != "running"
+
+- name: Clean up installer
+  ansible.windows.win_file:
+    path: C:\Temp\wazuh
+    state: absent

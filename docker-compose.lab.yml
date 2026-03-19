@@ -1,0 +1,26 @@
+# Lab / Demo override — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.lab.yml up -d
+# Reduces resource usage for local testing.
+
+version: "3.9"
+
+services:
+  wazuh-indexer:
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  wazuh-manager:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  wazuh-dashboard:
+    deploy:
+      resources:
+        limits:
+          memory: 512m

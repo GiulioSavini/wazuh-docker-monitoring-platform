@@ -1,0 +1,93 @@
+---
+# Wazuh Agent Linux — Install, configure, register, start
+# Handles: Debian/Ubuntu, RHEL/CentOS/Rocky/Alma, SUSE
+
+- name: Gather OS facts
+  ansible.builtin.setup:
+    filter: "ansible_os_family,ansible_distribution,ansible_distribution_major_version"
+
+- name: Display detected OS
+  ansible.builtin.debug:
+    msg: "Detected: {{ ansible_distribution }} {{ ansible_distribution_major_version }} ({{ ansible_os_family }})"
+
+- name: Include Debian/Ubuntu tasks
+  ansible.builtin.include_tasks: debian.yml
+  when: ansible_os_family == "Debian"
+
+- name: Include RedHat/CentOS/Rocky tasks
+  ansible.builtin.include_tasks: redhat.yml
+  when: ansible_os_family == "RedHat"
+
+- name: Include SUSE tasks
+  ansible.builtin.include_tasks: suse.yml
+  when: ansible_os_family == "Suse"
+
+- name: Fail if OS not supported
+  ansible.builtin.fail:
+    msg: "Unsupported OS family: {{ ansible_os_family }}. Supported: Debian, RedHat, Suse."
+  when: ansible_os_family not in ["Debian", "RedHat", "Suse"]
+
+# Select the right config template based on OS and host type
+- name: Set agent config template
+  ansible.builtin.set_fact:
+    _agent_template: >-
+      {%- if wazuh_agent_config_template is defined -%}
+        {{ wazuh_agent_config_template }}
+      {%- elif 'docker_hosts' in group_names -%}
+        ossec-agent-docker.conf.j2
+      {%- elif ansible_os_family == 'RedHat' -%}
+        ossec-agent-redhat.conf.j2
+      {%- else -%}
+        ossec-agent.conf.j2
+      {%- endif -%}
+
+- name: Deploy agent configuration ({{ _agent_template | trim }})
+  ansible.builtin.template:
+    src: "{{ _agent_template | trim }}"
+    dest: /var/ossec/etc/ossec.conf
+    owner: root
+    group: wazuh
+    mode: "0640"
+  notify: restart wazuh-agent
+
+- name: Register agent with manager
+  ansible.builtin.command:
+    cmd: >
+      /var/ossec/bin/agent-auth
+      -m {{ wazuh_manager_ip }}
+      -P {{ wazuh_registration_password }}
+      -G {{ wazuh_agent_groups }}
+    creates: /var/ossec/etc/client.keys
+  no_log: true
+
+- name: Ensure wazuh-agent is enabled and running
+  ansible.builtin.systemd:
+    name: wazuh-agent
+    state: started
+    enabled: true
+
+- name: Deploy logrotate for agent logs
+  ansible.builtin.copy:
+    content: |
+      /var/ossec/logs/ossec.log
+      /var/ossec/logs/active-responses.log {
+          daily
+          rotate 14
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0640 root ossec
+          postrotate
+              systemctl reload wazuh-agent 2>/dev/null || true
+          endscript
+      }
+    dest: /etc/logrotate.d/wazuh-agent
+    mode: "0644"
+
+- name: Verify agent is connected
+  ansible.builtin.command:
+    cmd: /var/ossec/bin/wazuh-control status
+  register: agent_status
+  changed_when: false
+  failed_when: "'is running' not in agent_status.stdout"

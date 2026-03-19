@@ -1,0 +1,9 @@
+# Defaults for wazuh-agent-windows role
+wazuh_agent_version: "4.9.0"
+wazuh_manager_ip: "10.0.1.10"
+wazuh_manager_port: 1514
+wazuh_manager_protocol: tcp
+wazuh_registration_password: ""
+wazuh_agent_groups: "default"
+wazuh_windows_install_dir: 'C:\Program Files (x86)\ossec-agent'
+wazuh_windows_msi_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_agent_version }}-1.msi"

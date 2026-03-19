@@ -1,0 +1,3 @@
+# Network discovery dependencies
+# Core scanning uses only stdlib; PyYAML needed for --inventory flag
+PyYAML>=6.0

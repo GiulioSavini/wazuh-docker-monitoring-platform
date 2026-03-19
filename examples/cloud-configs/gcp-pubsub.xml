@@ -1,0 +1,51 @@
+<!--
+  GCP Audit Log Integration Example (via Pub/Sub)
+  Add this block inside <ossec_config> in the Wazuh Manager configuration.
+  Docs: https://documentation.wazuh.com/current/cloud-security/gcp/index.html
+-->
+
+<wodle name="gcp-pubsub">
+  <disabled>no</disabled>
+  <interval>5m</interval>
+  <run_on_start>yes</run_on_start>
+
+  <project_id>my-gcp-project-id</project_id>
+  <subscription_name>wazuh-audit-log-sub</subscription_name>
+  <credentials_file>/var/ossec/etc/gcp-credentials.json</credentials_file>
+
+  <!-- Max messages per pull (default: 100) -->
+  <max_messages>100</max_messages>
+
+  <!-- Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL -->
+  <logging>INFO</logging>
+</wodle>
+
+<!--
+  GCP Setup Steps:
+
+  1. Create a Pub/Sub topic:
+     gcloud pubsub topics create wazuh-audit-logs
+
+  2. Create a log sink to route audit logs to the topic:
+     gcloud logging sinks create wazuh-audit-sink \
+       pubsub.googleapis.com/projects/my-gcp-project-id/topics/wazuh-audit-logs \
+       --log-filter='logName:"cloudaudit.googleapis.com"'
+
+  3. Create a subscription:
+     gcloud pubsub subscriptions create wazuh-audit-log-sub \
+       --topic=wazuh-audit-logs \
+       --ack-deadline=60
+
+  4. Create a service account with Pub/Sub Subscriber role:
+     gcloud iam service-accounts create wazuh-pubsub-reader
+     gcloud projects add-iam-policy-binding my-gcp-project-id \
+       --member="serviceAccount:wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com" \
+       --role="roles/pubsub.subscriber"
+
+  5. Download the service account key:
+     gcloud iam service-accounts keys create gcp-credentials.json \
+       --iam-account=wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com
+
+  6. Copy gcp-credentials.json to the Wazuh manager:
+     docker cp gcp-credentials.json wazuh-manager:/var/ossec/etc/gcp-credentials.json
+-->

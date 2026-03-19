@@ -1,0 +1,44 @@
+# Secrets
+.env
+*.key
+*.pem
+*.p12
+
+# Docker
+docker/wazuh/certs/*.pem
+docker/wazuh/certs/*.key
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+
+# Ansible
+ansible/*.retry
+ansible/host_vars/*/vault.yml
+
+# Discovery output
+scripts/discovery/output/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Backups (may contain secrets)
+backups/
+
+# Onboarding output
+scripts/onboarding/output/

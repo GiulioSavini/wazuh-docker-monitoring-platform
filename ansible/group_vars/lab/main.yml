@@ -1,0 +1,6 @@
+# Lab environment overrides
+wazuh_manager_ip: "192.168.56.10"
+wazuh_agent_version: "4.9.0"
+wazuh_syscheck_frequency: 43200  # 12 hours in lab
+wazuh_rootcheck_enabled: "yes"
+wazuh_sca_enabled: "yes"

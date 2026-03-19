@@ -1,0 +1,164 @@
+<!--
+  Custom Wazuh Rules — Docker Container Monitoring
+  Rule IDs: 100100–100199
+  These rules detect security-relevant Docker events from the Docker daemon log
+  and Docker audit events via the agent.
+-->
+<group name="docker,container,">
+
+  <!-- ===================== Container Lifecycle ===================== -->
+
+  <rule id="100100" level="3">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <description>Docker: container started — $(docker.Actor.Attributes.name)</description>
+    <group>docker_lifecycle,</group>
+  </rule>
+
+  <rule id="100101" level="3">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^stop$</field>
+    <description>Docker: container stopped — $(docker.Actor.Attributes.name)</description>
+    <group>docker_lifecycle,</group>
+  </rule>
+
+  <rule id="100102" level="5">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^die$</field>
+    <description>Docker: container died unexpectedly — $(docker.Actor.Attributes.name)</description>
+    <group>docker_lifecycle,</group>
+  </rule>
+
+  <rule id="100103" level="3">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^create$</field>
+    <description>Docker: new container created — $(docker.Actor.Attributes.name)</description>
+    <group>docker_lifecycle,</group>
+  </rule>
+
+  <rule id="100104" level="5">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^destroy$</field>
+    <description>Docker: container destroyed — $(docker.Actor.Attributes.name)</description>
+    <group>docker_lifecycle,</group>
+  </rule>
+
+  <!-- ===================== Exec Events ===================== -->
+
+  <rule id="100110" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^exec_start</field>
+    <description>Docker: exec command executed inside container — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>docker_exec,</group>
+  </rule>
+
+  <rule id="100111" level="10">
+    <if_sid>100110</if_sid>
+    <field name="docker.Actor.Attributes.execID">\S+</field>
+    <match>bash|sh|cmd|powershell</match>
+    <description>Docker: interactive shell executed inside container — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>docker_exec,</group>
+  </rule>
+
+  <!-- ===================== Image Events ===================== -->
+
+  <rule id="100120" level="5">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^image$</field>
+    <field name="docker.action">^pull$</field>
+    <description>Docker: image pulled — $(docker.Actor.Attributes.name)</description>
+    <group>docker_image,</group>
+  </rule>
+
+  <rule id="100121" level="7">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^image$</field>
+    <field name="docker.action">^build$</field>
+    <description>Docker: image built locally</description>
+    <group>docker_image,</group>
+  </rule>
+
+  <rule id="100122" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^image$</field>
+    <field name="docker.action">^push$</field>
+    <description>Docker: image pushed to registry</description>
+    <mitre>
+      <id>T1525</id>
+    </mitre>
+    <group>docker_image,</group>
+  </rule>
+
+  <!-- ===================== Security: Privileged Containers ===================== -->
+
+  <rule id="100130" level="12">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>privileged</match>
+    <description>Docker: PRIVILEGED container started — $(docker.Actor.Attributes.name). High risk of host compromise.</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <!-- ===================== Security: Suspicious Mounts ===================== -->
+
+  <rule id="100140" level="12">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <regex>Binds.*(/etc|/var/run/docker.sock|/root|/proc|/sys)</regex>
+    <description>Docker: container started with sensitive host mount — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <rule id="100141" level="14">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <regex>Binds.*/var/run/docker.sock</regex>
+    <description>Docker: container has Docker socket mounted — $(docker.Actor.Attributes.name). Container escape risk!</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <!-- ===================== Security: Anomalous Port Exposure ===================== -->
+
+  <rule id="100150" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <regex>HostPort.*(0\.0\.0\.0|::)</regex>
+    <description>Docker: container exposing port on all interfaces — $(docker.Actor.Attributes.name)</description>
+    <group>docker_network,</group>
+  </rule>
+
+  <rule id="100151" level="10">
+    <if_sid>100150</if_sid>
+    <regex>HostPort.*(22|23|3389|445|135|139)</regex>
+    <description>Docker: container exposing sensitive port (SSH/RDP/SMB) on all interfaces — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>docker_network,docker_security,</group>
+  </rule>
+
+  <!-- ===================== Frequency: Container Crash Loop ===================== -->
+
+  <rule id="100160" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100102</if_matched_sid>
+    <same_field>docker.Actor.Attributes.name</same_field>
+    <description>Docker: container crash loop detected — $(docker.Actor.Attributes.name) died 5+ times in 5 minutes</description>
+    <group>docker_lifecycle,docker_security,</group>
+  </rule>
+
+</group>

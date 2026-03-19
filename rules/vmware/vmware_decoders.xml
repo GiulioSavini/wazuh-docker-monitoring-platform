@@ -1,0 +1,30 @@
+<!--
+  Custom Decoders — VMware vCenter / ESXi syslog events
+  vCenter forwards events via syslog (UDP 514/1515) to the Wazuh manager.
+-->
+
+<!-- Parent decoder: match vCenter syslog format -->
+<decoder name="vmware-vcenter">
+  <prematch>vpxd|hostd|vmkernel|Vpxa|Rhttpproxy</prematch>
+</decoder>
+
+<!-- Child: extract event type, VM name, user -->
+<decoder name="vmware-vcenter-event">
+  <parent>vmware-vcenter</parent>
+  <regex offset="after_parent">\[(\S+)\]\s+\[(\S+)\].*?vm=(\S+)</regex>
+  <order>vmware.event_type,vmware.user,vmware.vm_name</order>
+</decoder>
+
+<!-- Child: extract host name from host events -->
+<decoder name="vmware-vcenter-host">
+  <parent>vmware-vcenter</parent>
+  <regex offset="after_parent">host=(\S+)</regex>
+  <order>vmware.host_name</order>
+</decoder>
+
+<!-- Child: extract alarm name -->
+<decoder name="vmware-vcenter-alarm">
+  <parent>vmware-vcenter</parent>
+  <regex offset="after_parent">Alarm '([^']+)'</regex>
+  <order>vmware.alarm_name</order>
+</decoder>

@@ -1,0 +1,170 @@
+<!--
+  Custom Wazuh Rules — Docker Advanced Monitoring
+  Rule IDs: 100170–100199
+  Extended detection: network ops, volumes, compose, resource abuse,
+  daemon config, container escape indicators.
+-->
+<group name="docker,container,advanced,">
+
+  <!-- ===================== Docker Network Operations ===================== -->
+
+  <rule id="100170" level="5">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^network$</field>
+    <field name="docker.action">^create$</field>
+    <description>Docker: network created — $(docker.Actor.Attributes.name)</description>
+    <group>docker_network,</group>
+  </rule>
+
+  <rule id="100171" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^network$</field>
+    <field name="docker.action">^remove$</field>
+    <description>Docker: network removed — $(docker.Actor.Attributes.name)</description>
+    <group>docker_network,</group>
+  </rule>
+
+  <rule id="100172" level="10">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^network$</field>
+    <field name="docker.action">^connect$</field>
+    <match>host</match>
+    <description>Docker: container connected to host network — bypasses network isolation</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_network,docker_security,</group>
+  </rule>
+
+  <!-- ===================== Volume Operations ===================== -->
+
+  <rule id="100175" level="5">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^volume$</field>
+    <field name="docker.action">^create$</field>
+    <description>Docker: volume created — $(docker.Actor.Attributes.name)</description>
+    <group>docker_volume,</group>
+  </rule>
+
+  <rule id="100176" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^volume$</field>
+    <field name="docker.action">^destroy$</field>
+    <description>Docker: volume destroyed — $(docker.Actor.Attributes.name). Data loss risk.</description>
+    <group>docker_volume,</group>
+  </rule>
+
+  <!-- ===================== Container Capabilities & Escape ===================== -->
+
+  <rule id="100180" level="14">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>CapAdd.*SYS_ADMIN|CapAdd.*SYS_PTRACE|CapAdd.*NET_ADMIN</match>
+    <description>Docker: container started with dangerous capabilities (SYS_ADMIN/SYS_PTRACE/NET_ADMIN) — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <rule id="100181" level="14">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>PidMode.*host|IpcMode.*host|NetworkMode.*host</match>
+    <description>Docker: container using host namespace (pid/ipc/network) — $(docker.Actor.Attributes.name). Container escape risk!</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <rule id="100182" level="12">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>SecurityOpt.*no-new-privileges.*false|SecurityOpt.*apparmor.*unconfined|SecurityOpt.*seccomp.*unconfined</match>
+    <description>Docker: container running with weakened security profile — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <!-- ===================== Docker Daemon Configuration ===================== -->
+
+  <rule id="100185" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/docker/daemon.json</match>
+    <description>Docker: daemon.json configuration file modified</description>
+    <group>docker_config,</group>
+  </rule>
+
+  <rule id="100186" level="12">
+    <if_sid>550</if_sid>
+    <match>/usr/bin/docker|/usr/bin/dockerd|/usr/bin/containerd</match>
+    <description>Docker: Docker binary modified — possible supply chain attack</description>
+    <mitre>
+      <id>T1195.002</id>
+    </mitre>
+    <group>docker_config,docker_security,</group>
+  </rule>
+
+  <!-- ===================== Image Security ===================== -->
+
+  <rule id="100188" level="10">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^image$</field>
+    <field name="docker.action">^pull$</field>
+    <regex>:latest$|:$</regex>
+    <description>Docker: image pulled with :latest or no tag — $(docker.Actor.Attributes.name). Use pinned versions.</description>
+    <group>docker_image,docker_security,</group>
+  </rule>
+
+  <rule id="100189" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^image$</field>
+    <field name="docker.action">^delete$</field>
+    <description>Docker: image deleted — $(docker.Actor.Attributes.name)</description>
+    <group>docker_image,</group>
+  </rule>
+
+  <!-- ===================== Compose / Orchestration Patterns ===================== -->
+
+  <rule id="100190" level="5" frequency="10" timeframe="30">
+    <if_matched_sid>100103</if_matched_sid>
+    <description>Docker: bulk container creation (10+ in 30s) — likely docker-compose up or orchestration</description>
+    <group>docker_orchestration,</group>
+  </rule>
+
+  <rule id="100191" level="8" frequency="10" timeframe="30">
+    <if_matched_sid>100104</if_matched_sid>
+    <description>Docker: bulk container destruction (10+ in 30s) — verify if authorized teardown</description>
+    <group>docker_orchestration,</group>
+  </rule>
+
+  <!-- ===================== Resource Abuse ===================== -->
+
+  <rule id="100195" level="10">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>CpuShares.*0|Memory.*0</match>
+    <description>Docker: container started without resource limits — $(docker.Actor.Attributes.name). Possible crypto-mining or resource abuse.</description>
+    <mitre>
+      <id>T1496</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+  <!-- ===================== Docker API Abuse ===================== -->
+
+  <rule id="100197" level="12">
+    <if_sid>87901</if_sid>
+    <field name="docker.action">^start$</field>
+    <match>Cmd.*mine|Cmd.*xmrig|Cmd.*stratum|Cmd.*cryptonight</match>
+    <description>Docker: container with crypto-mining indicators — $(docker.Actor.Attributes.name)</description>
+    <mitre>
+      <id>T1496</id>
+    </mitre>
+    <group>docker_security,</group>
+  </rule>
+
+</group>

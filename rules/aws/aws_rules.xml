@@ -1,0 +1,163 @@
+<!--
+  Custom Wazuh Rules — AWS CloudTrail & Security Events
+  Rule IDs: 100300–100399
+  Extends built-in AWS rules with more granular detection.
+-->
+<group name="aws,cloudtrail,">
+
+  <!-- ===================== IAM Changes ===================== -->
+
+  <rule id="100300" level="8">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">CreateUser</field>
+    <description>AWS: IAM user created — $(aws.requestParameters.userName) by $(aws.userIdentity.arn)</description>
+    <mitre>
+      <id>T1136</id>
+    </mitre>
+    <group>aws_iam,</group>
+  </rule>
+
+  <rule id="100301" level="10">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">AttachUserPolicy</field>
+    <description>AWS: policy attached to IAM user — $(aws.requestParameters.userName)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>aws_iam,</group>
+  </rule>
+
+  <rule id="100302" level="12">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">CreateAccessKey</field>
+    <description>AWS: new access key created for — $(aws.requestParameters.userName). Verify this is authorized.</description>
+    <mitre>
+      <id>T1098.001</id>
+    </mitre>
+    <group>aws_iam,</group>
+  </rule>
+
+  <rule id="100303" level="10">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">DeleteUser</field>
+    <description>AWS: IAM user deleted — $(aws.requestParameters.userName)</description>
+    <group>aws_iam,</group>
+  </rule>
+
+  <rule id="100304" level="12">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">AttachRolePolicy</field>
+    <match>AdministratorAccess</match>
+    <description>AWS: AdministratorAccess policy attached to role — privilege escalation risk</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>aws_iam,</group>
+  </rule>
+
+  <!-- ===================== Security Groups ===================== -->
+
+  <rule id="100310" level="8">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">AuthorizeSecurityGroupIngress</field>
+    <description>AWS: security group ingress rule added — $(aws.requestParameters.groupId)</description>
+    <group>aws_network,</group>
+  </rule>
+
+  <rule id="100311" level="12">
+    <if_sid>100310</if_sid>
+    <match>0.0.0.0/0</match>
+    <description>AWS: security group opened to 0.0.0.0/0 — $(aws.requestParameters.groupId). Public exposure!</description>
+    <mitre>
+      <id>T1562.007</id>
+    </mitre>
+    <group>aws_network,</group>
+  </rule>
+
+  <rule id="100312" level="10">
+    <if_sid>100310</if_sid>
+    <regex>fromPort":(22|3389|445)</regex>
+    <description>AWS: sensitive port (SSH/RDP/SMB) opened in security group — $(aws.requestParameters.groupId)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>aws_network,</group>
+  </rule>
+
+  <!-- ===================== EC2 Lifecycle ===================== -->
+
+  <rule id="100320" level="5">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">RunInstances</field>
+    <description>AWS: EC2 instance launched by $(aws.userIdentity.arn)</description>
+    <group>aws_ec2,</group>
+  </rule>
+
+  <rule id="100321" level="5">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">TerminateInstances</field>
+    <description>AWS: EC2 instance terminated by $(aws.userIdentity.arn)</description>
+    <group>aws_ec2,</group>
+  </rule>
+
+  <rule id="100322" level="8">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">StopInstances</field>
+    <description>AWS: EC2 instance stopped by $(aws.userIdentity.arn)</description>
+    <group>aws_ec2,</group>
+  </rule>
+
+  <!-- ===================== Unauthorized / Error Events ===================== -->
+
+  <rule id="100330" level="8">
+    <if_sid>80202</if_sid>
+    <field name="aws.errorCode">AccessDenied|UnauthorizedAccess|Client.UnauthorizedAccess</field>
+    <description>AWS: unauthorized API call — $(aws.eventName) by $(aws.userIdentity.arn)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>aws_auth,</group>
+  </rule>
+
+  <rule id="100331" level="12" frequency="10" timeframe="300">
+    <if_matched_sid>100330</if_matched_sid>
+    <same_field>aws.userIdentity.arn</same_field>
+    <description>AWS: repeated unauthorized API calls from $(aws.userIdentity.arn) — possible credential abuse</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>aws_auth,</group>
+  </rule>
+
+  <!-- ===================== Console Login ===================== -->
+
+  <rule id="100340" level="5">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">ConsoleLogin</field>
+    <field name="aws.responseElements.ConsoleLogin">Success</field>
+    <description>AWS: successful console login — $(aws.userIdentity.arn)</description>
+    <group>aws_auth,</group>
+  </rule>
+
+  <rule id="100341" level="8">
+    <if_sid>80202</if_sid>
+    <field name="aws.eventName">ConsoleLogin</field>
+    <field name="aws.responseElements.ConsoleLogin">Failure</field>
+    <description>AWS: failed console login attempt — $(aws.userIdentity.arn)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>aws_auth,</group>
+  </rule>
+
+  <rule id="100342" level="10">
+    <if_sid>100340</if_sid>
+    <field name="aws.additionalEventData.MFAUsed">No</field>
+    <description>AWS: console login WITHOUT MFA — $(aws.userIdentity.arn)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>aws_auth,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,17 @@
+<!--
+  AWS VPC Flow Logs Integration Example
+  Add this block inside <ossec_config> in the Wazuh Manager configuration.
+-->
+
+<wodle name="aws-s3">
+  <disabled>no</disabled>
+  <interval>10m</interval>
+  <run_on_start>yes</run_on_start>
+
+  <bucket type="vpcflow">
+    <name>my-vpc-flowlogs-bucket</name>
+    <region>eu-west-1</region>
+    <path>AWSLogs/123456789012/vpcflowlogs</path>
+    <only_logs_after>2024-01-01</only_logs_after>
+  </bucket>
+</wodle>

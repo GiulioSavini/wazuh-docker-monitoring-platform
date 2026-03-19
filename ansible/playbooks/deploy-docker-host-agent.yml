@@ -1,0 +1,63 @@
+---
+# Deploy Wazuh Agent to Docker hosts with Docker-specific monitoring
+# Usage: ansible-playbook -i inventories/production playbooks/deploy-docker-host-agent.yml
+
+- name: Deploy Wazuh agent on Docker hosts
+  hosts: docker_hosts
+  become: true
+  gather_facts: true
+
+  vars:
+    wazuh_agent_config_template: ossec-agent-docker.conf.j2
+    wazuh_agent_labels:
+      host.type: docker
+      monitoring.scope: "containers,host"
+
+  pre_tasks:
+    - name: Validate Docker is installed
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: docker_check.rc != 0
+
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - wazuh_manager_ip is defined
+          - wazuh_registration_password is defined
+
+    - name: Ensure Docker daemon logging is JSON
+      ansible.builtin.copy:
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }
+        dest: /etc/docker/daemon.json
+        mode: "0644"
+      notify: restart docker
+
+    - name: Deploy auditd rules for Docker monitoring
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../rules/linux/auditd_recommended.rules"
+        dest: /etc/audit/rules.d/wazuh.rules
+        mode: "0640"
+      notify: reload auditd
+
+  roles:
+    - role: wazuh-agent-linux
+
+  handlers:
+    - name: restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+
+    - name: reload auditd
+      ansible.builtin.command:
+        cmd: augenrules --load
+      changed_when: true
