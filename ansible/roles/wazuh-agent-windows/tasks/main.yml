@@ -36,7 +36,7 @@
   ansible.windows.win_template:
     src: ossec-agent-windows.conf.j2
     dest: '{{ wazuh_windows_install_dir }}\ossec.conf'
-  notify: restart wazuh-agent-windows
+  notify: Restart wazuh-agent-windows
 
 - name: Ensure Wazuh agent service is running
   ansible.windows.win_service:

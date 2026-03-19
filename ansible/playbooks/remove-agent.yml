@@ -24,7 +24,7 @@
         name: wazuh-agent
         state: stopped
         enabled: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Uninstall agent (Debian/Ubuntu)
       ansible.builtin.apt:
@@ -34,7 +34,7 @@
       when: ansible_os_family == "Debian"
 
     - name: Uninstall agent (RedHat)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: wazuh-agent
         state: absent
       when: ansible_os_family == "RedHat"
@@ -55,7 +55,8 @@
       delegate_to: localhost
       become: false
       when: agent_id.stdout is defined and agent_id.stdout | length > 0
-      ignore_errors: true
+      failed_when: false
+      changed_when: false
 
     - name: Report removal
       ansible.builtin.debug:
@@ -70,7 +71,7 @@
       ansible.windows.win_service:
         name: WazuhSvc
         state: stopped
-      ignore_errors: true
+      failed_when: false
 
     - name: Uninstall agent
       ansible.windows.win_package:
