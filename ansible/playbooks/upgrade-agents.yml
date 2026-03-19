@@ -43,7 +43,7 @@
 
     # RHEL/CentOS/Rocky
     - name: Upgrade agent (RedHat family)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: "wazuh-agent-{{ wazuh_agent_version }}"
         state: present
       when: ansible_os_family == "RedHat"

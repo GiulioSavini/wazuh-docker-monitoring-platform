@@ -7,7 +7,7 @@
     state: present
 
 - name: Add Wazuh repository
-  ansible.builtin.zypper_repository:
+  community.general.zypper_repository:
     name: wazuh
     repo: "https://packages.wazuh.com/4.x/yum/"
     state: present

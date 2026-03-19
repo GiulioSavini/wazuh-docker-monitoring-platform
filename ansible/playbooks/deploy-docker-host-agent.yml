@@ -39,25 +39,25 @@
           }
         dest: /etc/docker/daemon.json
         mode: "0644"
-      notify: restart docker
+      notify: Restart Docker
 
     - name: Deploy auditd rules for Docker monitoring
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../rules/linux/auditd_recommended.rules"
         dest: /etc/audit/rules.d/wazuh.rules
         mode: "0640"
-      notify: reload auditd
+      notify: Reload auditd
 
   roles:
     - role: wazuh-agent-linux
 
   handlers:
-    - name: restart docker
+    - name: Restart Docker
       ansible.builtin.systemd:
         name: docker
         state: restarted
 
-    - name: reload auditd
+    - name: Reload auditd
       ansible.builtin.command:
         cmd: augenrules --load
       changed_when: true
