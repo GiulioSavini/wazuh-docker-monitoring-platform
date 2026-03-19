@@ -1,0 +1,65 @@
+<!--
+  AWS CloudTrail Integration Example
+  Add this block inside <ossec_config> in the Wazuh Manager configuration.
+  Docs: https://documentation.wazuh.com/current/cloud-security/amazon/services/cloudtrail.html
+-->
+
+<!-- Option A: S3 bucket with IAM role (recommended for EC2-hosted managers) -->
+<wodle name="aws-s3">
+  <disabled>no</disabled>
+  <interval>10m</interval>
+  <run_on_start>yes</run_on_start>
+  <skip_on_error>yes</skip_on_error>
+
+  <bucket type="cloudtrail">
+    <name>my-cloudtrail-bucket</name>
+    <!-- Use IAM role if running on EC2, otherwise provide keys -->
+    <!-- <access_key>AKIAIOSFODNN7EXAMPLE</access_key> -->
+    <!-- <secret_key>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</secret_key> -->
+    <region>eu-west-1</region>
+    <path>AWSLogs/123456789012/CloudTrail</path>
+    <only_logs_after>2024-01-01</only_logs_after>
+  </bucket>
+</wodle>
+
+<!-- Option B: CloudWatch Logs (alternative ingestion method) -->
+<!--
+<wodle name="aws-s3">
+  <disabled>no</disabled>
+  <interval>5m</interval>
+  <run_on_start>yes</run_on_start>
+
+  <service type="cloudwatchlogs">
+    <aws_log_groups>cloudtrail-log-group</aws_log_groups>
+    <region>eu-west-1</region>
+  </service>
+</wodle>
+-->
+
+<!--
+  Required IAM Policy (minimum permissions):
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        "Resource": [
+          "arn:aws:s3:::my-cloudtrail-bucket",
+          "arn:aws:s3:::my-cloudtrail-bucket/*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage"
+        ],
+        "Resource": "arn:aws:sqs:eu-west-1:123456789012:cloudtrail-notifications"
+      }
+    ]
+  }
+-->

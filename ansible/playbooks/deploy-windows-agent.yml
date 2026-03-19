@@ -1,0 +1,28 @@
+---
+# Deploy Wazuh Agent to Windows servers via WinRM
+# Usage: ansible-playbook -i inventories/production playbooks/deploy-windows-agent.yml
+
+- name: Deploy Wazuh agent on Windows servers
+  hosts: windows_servers
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - wazuh_manager_ip is defined
+          - wazuh_registration_password is defined
+        fail_msg: "Required variables must be defined"
+
+  roles:
+    - role: wazuh-agent-windows
+
+  post_tasks:
+    - name: Verify agent service
+      ansible.windows.win_service:
+        name: WazuhSvc
+      register: final_status
+
+    - name: Report status
+      ansible.builtin.debug:
+        msg: "Wazuh agent on {{ inventory_hostname }}: {{ final_status.state }}"

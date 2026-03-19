@@ -1,0 +1,18 @@
+# Global variables shared across all groups
+wazuh_manager_protocol: tcp
+wazuh_agent_config_template: ossec-agent.conf.j2
+wazuh_agent_service_name: wazuh-agent
+
+# Package repository
+wazuh_repo_url_deb: "https://packages.wazuh.com/4.x/apt/"
+wazuh_repo_url_rpm: "https://packages.wazuh.com/4.x/yum/"
+wazuh_repo_gpg_key: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+
+# Agent settings
+wazuh_agent_log_format: json
+wazuh_syscheck_frequency: 43200
+wazuh_rootcheck_enabled: "yes"
+wazuh_sca_enabled: "yes"
+
+# Tags applied to all agents (can be overridden per group/host)
+wazuh_agent_labels: {}

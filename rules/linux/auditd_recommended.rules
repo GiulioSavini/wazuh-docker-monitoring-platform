@@ -1,0 +1,74 @@
+# =============================================================================
+# Recommended auditd rules for Wazuh monitoring
+# Deploy to: /etc/audit/rules.d/wazuh.rules
+# Then: augenrules --load && systemctl restart auditd
+# =============================================================================
+
+# Self-audit — protect audit config
+-w /etc/audit/ -p wa -k audit_config
+-w /etc/libaudit.conf -p wa -k audit_config
+-w /etc/audisp/ -p wa -k audit_config
+
+# ─── Identity & Authentication ──────────────────────────────────────────────
+-w /etc/passwd -p wa -k sensitive_files
+-w /etc/shadow -p wa -k sensitive_files
+-w /etc/gshadow -p wa -k sensitive_files
+-w /etc/group -p wa -k sensitive_files
+-w /etc/security/opasswd -p wa -k sensitive_files
+-w /etc/login.defs -p wa -k sensitive_files
+-w /etc/securetty -p wa -k sensitive_files
+-w /etc/pam.d/ -p wa -k sensitive_files
+
+# ─── Privilege Escalation ───────────────────────────────────────────────────
+-w /etc/sudoers -p wa -k priv_escalation
+-w /etc/sudoers.d/ -p wa -k priv_escalation
+-a always,exit -F arch=b64 -S setuid -S setgid -S setresuid -S setresgid -k priv_escalation
+-a always,exit -F arch=b32 -S setuid -S setgid -S setresuid -S setresgid -k priv_escalation
+
+# ─── SSH ────────────────────────────────────────────────────────────────────
+-w /etc/ssh/sshd_config -p wa -k ssh_config
+-w /root/.ssh/ -p wa -k ssh_keys
+-w /home/ -p wa -k ssh_keys
+
+# ─── Persistence ────────────────────────────────────────────────────────────
+-w /etc/crontab -p wa -k cron_persistence
+-w /var/spool/cron/ -p wa -k cron_persistence
+-w /etc/cron.d/ -p wa -k cron_persistence
+-w /etc/cron.daily/ -p wa -k cron_persistence
+-w /etc/cron.hourly/ -p wa -k cron_persistence
+-w /etc/systemd/system/ -p wa -k systemd_persistence
+-w /usr/lib/systemd/system/ -p wa -k systemd_persistence
+-w /etc/init.d/ -p wa -k init_persistence
+-w /etc/rc.local -p wa -k init_persistence
+-w /etc/ld.so.preload -p wa -k ld_preload
+
+# ─── Docker ─────────────────────────────────────────────────────────────────
+-w /usr/bin/docker -p rwxa -k docker_access
+-w /var/lib/docker/ -p wa -k docker_access
+-w /etc/docker/ -p wa -k docker_access
+-w /var/run/docker.sock -p rwxa -k docker_access
+-w /usr/bin/containerd -p rwxa -k docker_access
+
+# ─── Network ────────────────────────────────────────────────────────────────
+-w /etc/hosts -p wa -k network_config
+-w /etc/resolv.conf -p wa -k network_config
+-w /etc/sysconfig/iptables -p wa -k network_config
+-w /etc/nftables.conf -p wa -k network_config
+-a always,exit -F arch=b64 -S connect -F key=network_connect
+
+# ─── Suspicious Commands ────────────────────────────────────────────────────
+-w /usr/bin/nc -p x -k exec_commands
+-w /usr/bin/ncat -p x -k exec_commands
+-w /usr/bin/nmap -p x -k exec_commands
+-w /usr/bin/tcpdump -p x -k exec_commands
+-w /usr/bin/wireshark -p x -k exec_commands
+-w /usr/bin/rawshark -p x -k exec_commands
+-w /usr/sbin/iptables -p x -k exec_commands
+-w /usr/bin/base64 -p x -k exec_commands
+-w /usr/bin/xxd -p x -k exec_commands
+
+# ─── Kernel ─────────────────────────────────────────────────────────────────
+-a always,exit -F arch=b64 -S init_module -S finit_module -S delete_module -k kernel_modules
+-w /etc/modprobe.d/ -p wa -k kernel_modules
+-w /etc/sysctl.conf -p wa -k sysctl_changes
+-w /etc/sysctl.d/ -p wa -k sysctl_changes

@@ -1,0 +1,28 @@
+---
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - curl
+      - apt-transport-https
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Add Wazuh GPG key
+  ansible.builtin.apt_key:
+    url: "{{ wazuh_repo_gpg_key }}"
+    state: present
+
+- name: Add Wazuh repository
+  ansible.builtin.apt_repository:
+    repo: "deb {{ wazuh_repo_url_deb }} stable main"
+    state: present
+    filename: wazuh
+
+- name: Install Wazuh agent
+  ansible.builtin.apt:
+    name: "wazuh-agent={{ wazuh_agent_version }}-*"
+    state: present
+    update_cache: true
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_manager_ip }}"

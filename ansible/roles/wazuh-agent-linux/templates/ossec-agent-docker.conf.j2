@@ -1,0 +1,110 @@
+<!-- Extended agent config for Docker hosts — includes Docker-specific log collection -->
+<ossec_config>
+
+  <client>
+    <server>
+      <address>{{ wazuh_manager_ip }}</address>
+      <port>{{ wazuh_manager_port }}</port>
+      <protocol>{{ wazuh_manager_protocol }}</protocol>
+    </server>
+    <crypto_method>aes</crypto_method>
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
+    <auto_restart>yes</auto_restart>
+  </client>
+
+  <labels>
+    <label key="host.type">docker</label>
+{% for key, value in (wazuh_agent_labels | default({})).items() %}
+    <label key="{{ key }}">{{ value }}</label>
+{% endfor %}
+  </labels>
+
+  <!-- File integrity monitoring (host + Docker paths) -->
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>{{ wazuh_syscheck_frequency | default(43200) }}</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <directories realtime="yes" check_all="yes">/etc,/usr/bin,/usr/sbin</directories>
+    <directories realtime="yes" check_all="yes">/bin,/sbin,/boot</directories>
+    <!-- Docker-specific paths -->
+    <directories realtime="yes" check_all="yes">/etc/docker</directories>
+    <directories check_all="yes">/var/lib/docker/volumes</directories>
+    <ignore>/var/lib/docker/overlay2</ignore>
+    <ignore>/var/lib/docker/containers</ignore>
+    <ignore>/etc/mtab</ignore>
+    <ignore>/etc/random-seed</ignore>
+    <skip_nfs>yes</skip_nfs>
+    <skip_dev>yes</skip_dev>
+    <skip_proc>yes</skip_proc>
+    <skip_sys>yes</skip_sys>
+  </syscheck>
+
+  <rootcheck>
+    <disabled>no</disabled>
+    <frequency>{{ wazuh_syscheck_frequency | default(43200) }}</frequency>
+  </rootcheck>
+
+  <sca>
+    <enabled>yes</enabled>
+    <scan_on_start>yes</scan_on_start>
+    <interval>12h</interval>
+  </sca>
+
+  <!-- Standard log collection -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/syslog</location>
+  </localfile>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/auth.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>audit</log_format>
+    <location>/var/log/audit/audit.log</location>
+  </localfile>
+
+  <!-- Docker daemon log (JSON events) -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/docker.log</location>
+    <label key="source">docker-daemon</label>
+  </localfile>
+
+  <!-- Docker container logs (journald) -->
+  <localfile>
+    <log_format>journald</log_format>
+    <location>UNIT=docker.service</location>
+    <label key="source">docker-service</label>
+  </localfile>
+
+  <!-- Docker events via command monitoring -->
+  <localfile>
+    <log_format>command</log_format>
+    <command>docker ps --format '{{ '{{' }}.ID{{ '}}' }}\t{{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Image{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}' 2>/dev/null</command>
+    <alias>docker-running-containers</alias>
+    <frequency>300</frequency>
+  </localfile>
+
+  <localfile>
+    <log_format>command</log_format>
+    <command>docker images --format '{{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}\t{{ '{{' }}.Size{{ '}}' }}\t{{ '{{' }}.CreatedAt{{ '}}' }}' 2>/dev/null | head -50</command>
+    <alias>docker-images</alias>
+    <frequency>3600</frequency>
+  </localfile>
+
+  <localfile>
+    <log_format>full_command</log_format>
+    <command>docker info --format '{{ '{{' }}json .{{ '}}' }}' 2>/dev/null</command>
+    <alias>docker-info</alias>
+    <frequency>86400</frequency>
+  </localfile>
+
+  <active-response>
+    <disabled>no</disabled>
+  </active-response>
+
+</ossec_config>

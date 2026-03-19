@@ -1,0 +1,121 @@
+---
+# Upgrade Wazuh Agents (Rolling)
+# Upgrades agents one at a time with verification between each host.
+#
+# Usage:
+#   ansible-playbook -i inventories/production playbooks/upgrade-agents.yml \
+#       -e wazuh_agent_version=4.10.0
+#   # Upgrade a single host first (canary):
+#   ansible-playbook -i inventories/production playbooks/upgrade-agents.yml \
+#       -e wazuh_agent_version=4.10.0 --limit web-prod-01
+
+- name: Upgrade Wazuh agents (rolling)
+  hosts: linux_servers:docker_hosts
+  become: true
+  serial: 1  # One host at a time for rolling upgrade
+  gather_facts: true
+
+  pre_tasks:
+    - name: Check current agent version
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control info -v
+      register: current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Display upgrade plan
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ current_version.stdout | default('not installed') }} → {{ wazuh_agent_version }}"
+
+    - name: Skip if already at target version
+      ansible.builtin.meta: end_host
+      when: wazuh_agent_version in (current_version.stdout | default(''))
+
+  tasks:
+    # Debian/Ubuntu
+    - name: Upgrade agent (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: "wazuh-agent={{ wazuh_agent_version }}-*"
+        state: present
+        update_cache: true
+        only_upgrade: true
+      when: ansible_os_family == "Debian"
+
+    # RHEL/CentOS/Rocky
+    - name: Upgrade agent (RedHat family)
+      ansible.builtin.yum:
+        name: "wazuh-agent-{{ wazuh_agent_version }}"
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # SUSE
+    - name: Upgrade agent (SUSE)
+      community.general.zypper:
+        name: "wazuh-agent-{{ wazuh_agent_version }}"
+        state: present
+      when: ansible_os_family == "Suse"
+
+    - name: Restart agent after upgrade
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: restarted
+
+    - name: Wait for agent to reconnect
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Verify new version
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control info -v
+      register: new_version
+      changed_when: false
+
+    - name: Confirm upgrade
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: upgraded to {{ new_version.stdout }}"
+
+    - name: Verify agent is connected
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control status
+      register: post_status
+      changed_when: false
+      failed_when: "'is running' not in post_status.stdout"
+
+- name: Upgrade Wazuh agents on Windows
+  hosts: windows_servers
+  serial: 1
+  gather_facts: true
+
+  tasks:
+    - name: Download new MSI
+      ansible.windows.win_get_url:
+        url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_agent_version }}-1.msi"
+        dest: C:\Temp\wazuh-agent-upgrade.msi
+        force: true
+
+    - name: Stop Wazuh service
+      ansible.windows.win_service:
+        name: WazuhSvc
+        state: stopped
+
+    - name: Upgrade agent
+      ansible.windows.win_package:
+        path: C:\Temp\wazuh-agent-upgrade.msi
+        arguments: /q
+        state: present
+
+    - name: Start Wazuh service
+      ansible.windows.win_service:
+        name: WazuhSvc
+        state: started
+
+    - name: Clean up installer
+      ansible.windows.win_file:
+        path: C:\Temp\wazuh-agent-upgrade.msi
+        state: absent
+
+    - name: Verify service
+      ansible.windows.win_service:
+        name: WazuhSvc
+      register: win_status
+      failed_when: win_status.state != "running"

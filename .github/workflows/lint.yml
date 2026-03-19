@@ -1,0 +1,75 @@
+name: Lint & Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Lint YAML files
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" \
+            ansible/ docker-compose.yml docker/traefik/
+
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ansible-lint
+        run: pip install ansible-lint ansible
+      - name: Lint Ansible playbooks and roles
+        working-directory: ansible
+        run: ansible-lint playbooks/ roles/
+
+  xml-validate:
+    name: Validate Wazuh Rules XML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xmllint
+        run: sudo apt-get install -y libxml2-utils
+      - name: Validate XML rule files
+        run: |
+          find rules/ -name '*.xml' -exec xmllint --noout {} \;
+          echo "All XML files are valid."
+
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Lint Python scripts
+        run: ruff check scripts/
+
+  shellcheck:
+    name: Shell Script Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Lint shell scripts
+        run: |
+          find scripts/ -name '*.sh' -exec shellcheck -S warning {} \;
+
+  docker-compose-validate:
+    name: Docker Compose Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet

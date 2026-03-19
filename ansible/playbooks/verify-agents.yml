@@ -1,0 +1,71 @@
+---
+# Verify Wazuh agent connectivity across all hosts
+# Usage: ansible-playbook -i inventories/production playbooks/verify-agents.yml
+
+- name: Verify Wazuh agents on Linux hosts
+  hosts: linux_servers:docker_hosts
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check agent service is running
+      ansible.builtin.systemd:
+        name: wazuh-agent
+      register: agent_svc
+      failed_when: agent_svc.status.ActiveState != "active"
+
+    - name: Check agent connection status
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control status
+      register: agent_status
+      changed_when: false
+
+    - name: Get agent ID
+      ansible.builtin.command:
+        cmd: grep -oP '^\d+' /var/ossec/etc/client.keys
+      register: agent_id
+      changed_when: false
+      failed_when: false
+
+    - name: Report agent status
+      ansible.builtin.debug:
+        msg: >
+          Host={{ inventory_hostname }}
+          IP={{ ansible_host }}
+          AgentID={{ agent_id.stdout | default('unregistered') }}
+          Status={{ 'connected' if 'is running' in agent_status.stdout else 'disconnected' }}
+
+- name: Verify Wazuh agents on Windows hosts
+  hosts: windows_servers
+  gather_facts: false
+
+  tasks:
+    - name: Check agent service is running
+      ansible.windows.win_service:
+        name: WazuhSvc
+      register: win_svc
+      failed_when: win_svc.state != "running"
+
+    - name: Report Windows agent status
+      ansible.builtin.debug:
+        msg: >
+          Host={{ inventory_hostname }}
+          IP={{ ansible_host }}
+          Status={{ win_svc.state }}
+
+- name: Summary from Wazuh Manager
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: List all agents from manager
+      ansible.builtin.command:
+        cmd: docker exec wazuh-manager /var/ossec/bin/agent_control -l
+      register: all_agents
+      changed_when: false
+      failed_when: false
+
+    - name: Display agent summary
+      ansible.builtin.debug:
+        var: all_agents.stdout_lines

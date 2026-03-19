@@ -1,0 +1,138 @@
+<!--
+  Custom Wazuh Rules — GCP Audit Log Events
+  Rule IDs: 100400–100499
+  Detects security-relevant events from GCP audit logs ingested via Pub/Sub or syslog.
+-->
+<group name="gcp,google_cloud,">
+
+  <!-- ===================== Compute Engine ===================== -->
+
+  <rule id="100400" level="5">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.instances.insert</field>
+    <description>GCP: compute instance created by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_compute,</group>
+  </rule>
+
+  <rule id="100401" level="5">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.instances.delete</field>
+    <description>GCP: compute instance deleted by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_compute,</group>
+  </rule>
+
+  <rule id="100402" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.instances.stop</field>
+    <description>GCP: compute instance stopped by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_compute,</group>
+  </rule>
+
+  <!-- ===================== Firewall Rules ===================== -->
+
+  <rule id="100410" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.firewalls.insert</field>
+    <description>GCP: firewall rule created by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_network,</group>
+  </rule>
+
+  <rule id="100411" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.firewalls.update</field>
+    <description>GCP: firewall rule modified by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_network,</group>
+  </rule>
+
+  <rule id="100412" level="10">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">compute.firewalls.delete</field>
+    <description>GCP: firewall rule deleted by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_network,</group>
+  </rule>
+
+  <rule id="100413" level="12">
+    <if_sid>100410</if_sid>
+    <match>0.0.0.0/0</match>
+    <description>GCP: firewall rule created allowing 0.0.0.0/0 — public exposure risk</description>
+    <mitre>
+      <id>T1562.007</id>
+    </mitre>
+    <group>gcp_network,</group>
+  </rule>
+
+  <!-- ===================== IAM Changes ===================== -->
+
+  <rule id="100420" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">SetIamPolicy</field>
+    <description>GCP: IAM policy changed by $(gcp.authenticationInfo.principalEmail)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>gcp_iam,</group>
+  </rule>
+
+  <rule id="100421" level="10">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">google.iam.admin.v1.CreateServiceAccount</field>
+    <description>GCP: service account created by $(gcp.authenticationInfo.principalEmail)</description>
+    <mitre>
+      <id>T1136</id>
+    </mitre>
+    <group>gcp_iam,</group>
+  </rule>
+
+  <rule id="100422" level="12">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">google.iam.admin.v1.CreateServiceAccountKey</field>
+    <description>GCP: service account key created by $(gcp.authenticationInfo.principalEmail). Potential credential theft vector.</description>
+    <mitre>
+      <id>T1098.001</id>
+    </mitre>
+    <group>gcp_iam,</group>
+  </rule>
+
+  <!-- ===================== Storage ===================== -->
+
+  <rule id="100430" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">storage.buckets.update</field>
+    <description>GCP: storage bucket configuration changed by $(gcp.authenticationInfo.principalEmail)</description>
+    <group>gcp_storage,</group>
+  </rule>
+
+  <rule id="100431" level="12">
+    <if_sid>65000</if_sid>
+    <field name="gcp.methodName">storage.setIamPermissions</field>
+    <match>allUsers|allAuthenticatedUsers</match>
+    <description>GCP: storage bucket made public by $(gcp.authenticationInfo.principalEmail)</description>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <group>gcp_storage,</group>
+  </rule>
+
+  <!-- ===================== Auth Failures ===================== -->
+
+  <rule id="100440" level="8">
+    <if_sid>65000</if_sid>
+    <field name="gcp.status.code">7</field>
+    <description>GCP: permission denied — $(gcp.methodName) by $(gcp.authenticationInfo.principalEmail)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>gcp_auth,</group>
+  </rule>
+
+  <rule id="100441" level="12" frequency="10" timeframe="300">
+    <if_matched_sid>100440</if_matched_sid>
+    <same_field>gcp.authenticationInfo.principalEmail</same_field>
+    <description>GCP: repeated permission denied events from $(gcp.authenticationInfo.principalEmail) — possible enumeration</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>gcp_auth,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,196 @@
+###############################################################################
+# Wazuh Docker Monitoring Platform - Docker Compose
+# Production-ready deployment with persistent volumes and healthchecks
+###############################################################################
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Wazuh Indexer (OpenSearch-based)
+  # ---------------------------------------------------------------------------
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:${WAZUH_VERSION:-4.9.0}
+    container_name: wazuh-indexer
+    hostname: wazuh-indexer
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms${INDEXER_HEAP:-1g} -Xmx${INDEXER_HEAP:-1g}"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "bootstrap.memory_lock=true"
+      - "discovery.type=single-node"
+      - "plugins.security.ssl.http.enabled=true"
+      - "plugins.security.ssl.http.pemcert_filepath=/usr/share/wazuh-indexer/certs/indexer.pem"
+      - "plugins.security.ssl.http.pemkey_filepath=/usr/share/wazuh-indexer/certs/indexer-key.pem"
+      - "plugins.security.ssl.http.pemtrustedcas_filepath=/usr/share/wazuh-indexer/certs/root-ca.pem"
+      - "plugins.security.ssl.transport.pemcert_filepath=/usr/share/wazuh-indexer/certs/indexer.pem"
+      - "plugins.security.ssl.transport.pemkey_filepath=/usr/share/wazuh-indexer/certs/indexer-key.pem"
+      - "plugins.security.ssl.transport.pemtrustedcas_filepath=/usr/share/wazuh-indexer/certs/root-ca.pem"
+      - "plugins.security.authcz.admin_dn=CN=admin,OU=Wazuh,O=Wazuh,L=California,C=US"
+      - "plugins.security.nodes_dn=CN=indexer,OU=Wazuh,O=Wazuh,L=California,C=US"
+      - "compatibility.override_main_response_version=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./docker/wazuh/certs:/usr/share/wazuh-indexer/certs:ro
+      - ./docker/wazuh/config/indexer.yml:/usr/share/wazuh-indexer/opensearch.yml:ro
+    ports:
+      - "${INDEXER_PORT:-9200}:9200"
+    networks:
+      - wazuh-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk https://localhost:9200 -u admin:$${INDEXER_PASSWORD} | grep -q 'wazuh-indexer'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Wazuh Manager
+  # ---------------------------------------------------------------------------
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.9.0}
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=${INDEXER_USERNAME:-admin}
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD}
+      - FILEBEAT_SSL_VERIFICATION_MODE=${FILEBEAT_SSL_VERIFY:-full}
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat-key.pem
+      - API_USERNAME=${API_USERNAME:-wazuh-wui}
+      - API_PASSWORD=${API_PASSWORD}
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-etc:/var/ossec/etc
+      - wazuh-manager-queue:/var/ossec/queue
+      - ./docker/wazuh/certs:/etc/ssl:ro
+      - ./docker/wazuh/config/ossec.conf:/var/ossec/etc/ossec.conf:ro
+      - ./rules/docker:/var/ossec/etc/rules/custom-docker:ro
+      - ./rules/vmware:/var/ossec/etc/rules/custom-vmware:ro
+      - ./rules/aws:/var/ossec/etc/rules/custom-aws:ro
+      - ./rules/gcp:/var/ossec/etc/rules/custom-gcp:ro
+      - ./rules/linux:/var/ossec/etc/rules/custom-linux:ro
+      - ./rules/lists/blocked-ips.list:/var/ossec/etc/lists/blocked-ips:ro
+      - ./rules/lists/approved-docker-images.list:/var/ossec/etc/lists/approved-docker-images:ro
+    ports:
+      - "${MANAGER_API_PORT:-55000}:55000"
+      - "${AGENT_PORT:-1514}:1514"
+      - "${SYSLOG_PORT:-1515}:1515"
+    networks:
+      - wazuh-net
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "/var/ossec/bin/wazuh-control status | grep -q 'is running'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # ---------------------------------------------------------------------------
+  # Wazuh Dashboard
+  # ---------------------------------------------------------------------------
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:${WAZUH_VERSION:-4.9.0}
+    container_name: wazuh-dashboard
+    hostname: wazuh-dashboard
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "30m"
+        max-file: "3"
+    environment:
+      - INDEXER_USERNAME=${INDEXER_USERNAME:-admin}
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD}
+      - WAZUH_API_URL=https://wazuh-manager
+      - DASHBOARD_USERNAME=${DASHBOARD_USERNAME:-kibanaserver}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
+      - API_USERNAME=${API_USERNAME:-wazuh-wui}
+      - API_PASSWORD=${API_PASSWORD}
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/usr/share/wazuh-dashboard/certs/dashboard.pem
+      - SERVER_SSL_KEY=/usr/share/wazuh-dashboard/certs/dashboard-key.pem
+      - OPENSEARCH_HOSTS=https://wazuh-indexer:9200
+    volumes:
+      - ./docker/wazuh/certs:/usr/share/wazuh-dashboard/certs:ro
+      - ./docker/wazuh/config/wazuh_dashboard.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml:ro
+    ports:
+      - "${DASHBOARD_PORT:-5601}:5601"
+    networks:
+      - wazuh-net
+    depends_on:
+      wazuh-manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk https://localhost:5601/api/status | grep -q 'available'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy (NGINX) — optional, enable via profile
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: wazuh-nginx
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    networks:
+      - wazuh-net
+    depends_on:
+      wazuh-dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  wazuh-indexer-data:
+    driver: local
+  wazuh-manager-data:
+    driver: local
+  wazuh-manager-logs:
+    driver: local
+  wazuh-manager-etc:
+    driver: local
+  wazuh-manager-queue:
+    driver: local
+
+networks:
+  wazuh-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${WAZUH_SUBNET:-172.25.0.0/24}

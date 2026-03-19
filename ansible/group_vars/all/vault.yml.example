@@ -1,0 +1,6 @@
+# Encrypt this file with: ansible-vault encrypt vault.yml
+# Then reference variables in hosts.yml via {{ vault_* }}
+
+vault_wazuh_registration_password: "CHANGE_ME"
+vault_windows_admin_user: "Administrator"
+vault_windows_admin_password: "CHANGE_ME"

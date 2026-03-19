@@ -1,0 +1,11 @@
+# Defaults for wazuh-agent-linux role
+wazuh_agent_version: "4.9.0"
+wazuh_manager_ip: "10.0.1.10"
+wazuh_manager_port: 1514
+wazuh_manager_protocol: tcp
+wazuh_registration_password: ""
+wazuh_agent_groups: "default"
+wazuh_syscheck_frequency: 43200
+wazuh_rootcheck_enabled: "yes"
+wazuh_sca_enabled: "yes"
+wazuh_agent_labels: {}

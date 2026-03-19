@@ -1,0 +1,79 @@
+<!--
+  Custom Wazuh Rules — Linux Audit Framework (auditd)
+  Rule IDs: 100600–100649
+  Requires auditd configured on target hosts.
+  See templates/auditd/ for recommended audit.rules.
+-->
+<group name="linux,audit,">
+
+  <!-- ===================== Process Execution Audit ===================== -->
+
+  <rule id="100600" level="5">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">exec_commands</field>
+    <description>Linux audit: command executed — $(audit.exe) by uid=$(audit.uid)</description>
+    <group>linux_audit_exec,</group>
+  </rule>
+
+  <rule id="100601" level="10">
+    <if_sid>100600</if_sid>
+    <match>/usr/bin/wget|/usr/bin/curl|/usr/bin/scp|/usr/bin/sftp</match>
+    <description>Linux audit: file transfer tool used — $(audit.exe) by uid=$(audit.uid)</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>linux_audit_exec,</group>
+  </rule>
+
+  <rule id="100602" level="12">
+    <if_sid>100600</if_sid>
+    <match>/usr/bin/ssh-keygen|/usr/bin/ssh-add</match>
+    <description>Linux audit: SSH key operation — $(audit.exe) by uid=$(audit.uid)</description>
+    <mitre>
+      <id>T1098.004</id>
+    </mitre>
+    <group>linux_audit_exec,</group>
+  </rule>
+
+  <!-- ===================== File Access Audit ===================== -->
+
+  <rule id="100610" level="8">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">sensitive_files</field>
+    <description>Linux audit: sensitive file accessed — $(audit.file.name) by uid=$(audit.uid)</description>
+    <group>linux_audit_file,</group>
+  </rule>
+
+  <rule id="100611" level="10">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">docker_access</field>
+    <description>Linux audit: Docker socket/config accessed — $(audit.file.name) by uid=$(audit.uid)</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>linux_audit_file,docker,</group>
+  </rule>
+
+  <!-- ===================== Network Audit ===================== -->
+
+  <rule id="100620" level="8">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">network_connect</field>
+    <match>connect</match>
+    <description>Linux audit: outbound network connection by $(audit.exe) uid=$(audit.uid)</description>
+    <group>linux_audit_net,</group>
+  </rule>
+
+  <!-- ===================== Privilege Change ===================== -->
+
+  <rule id="100630" level="10">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">priv_escalation</field>
+    <description>Linux audit: privilege escalation syscall — $(audit.syscall) by uid=$(audit.uid)</description>
+    <mitre>
+      <id>T1068</id>
+    </mitre>
+    <group>linux_audit_priv,</group>
+  </rule>
+
+</group>

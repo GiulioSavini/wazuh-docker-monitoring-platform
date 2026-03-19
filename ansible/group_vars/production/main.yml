@@ -1,0 +1,6 @@
+# Production environment overrides
+wazuh_manager_ip: "10.0.1.10"
+wazuh_agent_version: "4.9.0"
+wazuh_syscheck_frequency: 21600  # 6 hours in production
+wazuh_rootcheck_enabled: "yes"
+wazuh_sca_enabled: "yes"

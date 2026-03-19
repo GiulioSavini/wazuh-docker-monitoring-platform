@@ -1,0 +1,105 @@
+<!--
+  Wazuh Alerting Integrations
+  Add these blocks inside <ossec_config> in the Wazuh Manager config.
+  Each integration sends alerts matching certain rule levels to external systems.
+-->
+
+<!-- ======================================================================= -->
+<!-- SLACK — send high-severity alerts to a Slack channel                    -->
+<!-- ======================================================================= -->
+<!--
+  Prerequisites:
+  1. Create a Slack Incoming Webhook: https://api.slack.com/messaging/webhooks
+  2. Set the webhook URL below
+-->
+<integration>
+  <name>slack</name>
+  <hook_url>https://hooks.slack.com/services/YOUR/WEBHOOK/URL</hook_url>
+  <level>10</level>
+  <alert_format>json</alert_format>
+  <!-- Optional: filter by rule group -->
+  <!-- <group>docker_security,linux_privesc,aws_auth</group> -->
+</integration>
+
+<!-- ======================================================================= -->
+<!-- PAGERDUTY — page on-call for critical alerts                           -->
+<!-- ======================================================================= -->
+<!--
+<integration>
+  <name>pagerduty</name>
+  <api_key>YOUR_PAGERDUTY_INTEGRATION_KEY</api_key>
+  <level>12</level>
+  <alert_format>json</alert_format>
+</integration>
+-->
+
+<!-- ======================================================================= -->
+<!-- CUSTOM WEBHOOK — send to any HTTP endpoint (Teams, Discord, etc.)     -->
+<!-- ======================================================================= -->
+<!--
+  For Microsoft Teams: create an Incoming Webhook connector in your channel.
+  For custom APIs: point to your endpoint.
+-->
+<!--
+<integration>
+  <name>custom-webhook</name>
+  <hook_url>https://YOUR-ENDPOINT/wazuh-alerts</hook_url>
+  <level>8</level>
+  <alert_format>json</alert_format>
+  <options>
+    <extra_headers>
+      <header>Authorization: Bearer YOUR_TOKEN</header>
+    </extra_headers>
+  </options>
+</integration>
+-->
+
+<!-- ======================================================================= -->
+<!-- EMAIL — built-in SMTP alerting                                        -->
+<!-- ======================================================================= -->
+<!--
+  Already partially configured in ossec.conf. To enable:
+  1. Set email_notification to "yes" in the <global> section
+  2. Configure SMTP server, from, to addresses
+  3. Set email_alert_level (default: 12)
+-->
+<!--
+<global>
+  <email_notification>yes</email_notification>
+  <smtp_server>smtp.example.com</smtp_server>
+  <email_from>wazuh@example.com</email_from>
+  <email_to>security-team@example.com</email_to>
+  <email_maxperhour>12</email_maxperhour>
+</global>
+
+<email_alerts>
+  <email_to>oncall@example.com</email_to>
+  <level>12</level>
+  <group>docker_security|linux_privesc|aws_auth</group>
+  <do_not_delay />
+</email_alerts>
+-->
+
+<!-- ======================================================================= -->
+<!-- SYSLOG FORWARDING — send alerts to SIEM (Splunk, QRadar, etc.)       -->
+<!-- ======================================================================= -->
+<!--
+<syslog_output>
+  <server>10.0.1.100</server>
+  <port>514</port>
+  <format>json</format>
+  <level>5</level>
+</syslog_output>
+-->
+
+<!-- ======================================================================= -->
+<!-- VIRUSTOTAL — automatic hash lookup for FIM alerts                     -->
+<!-- ======================================================================= -->
+<!--
+<integration>
+  <name>virustotal</name>
+  <api_key>YOUR_VIRUSTOTAL_API_KEY</api_key>
+  <group>syscheck</group>
+  <alert_format>json</alert_format>
+</integration>
+-->

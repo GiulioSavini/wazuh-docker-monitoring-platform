@@ -1,0 +1,21 @@
+---
+- name: Import Wazuh GPG key
+  ansible.builtin.rpm_key:
+    key: "{{ wazuh_repo_gpg_key }}"
+    state: present
+
+- name: Add Wazuh repository
+  ansible.builtin.yum_repository:
+    name: wazuh
+    description: Wazuh repository
+    baseurl: "{{ wazuh_repo_url_rpm }}"
+    gpgcheck: true
+    gpgkey: "{{ wazuh_repo_gpg_key }}"
+    enabled: true
+
+- name: Install Wazuh agent
+  ansible.builtin.yum:
+    name: "wazuh-agent-{{ wazuh_agent_version }}"
+    state: present
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_manager_ip }}"

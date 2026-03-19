@@ -1,0 +1,86 @@
+<ossec_config>
+
+  <client>
+    <server>
+      <address>{{ wazuh_manager_ip }}</address>
+      <port>{{ wazuh_manager_port }}</port>
+      <protocol>{{ wazuh_manager_protocol }}</protocol>
+    </server>
+    <crypto_method>aes</crypto_method>
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
+    <auto_restart>yes</auto_restart>
+  </client>
+
+  <client_buffer>
+    <disabled>no</disabled>
+    <queue_size>5000</queue_size>
+    <events_per_second>500</events_per_second>
+  </client_buffer>
+
+{% if wazuh_agent_labels | length > 0 %}
+  <labels>
+{% for key, value in wazuh_agent_labels.items() %}
+    <label key="{{ key }}">{{ value }}</label>
+{% endfor %}
+  </labels>
+{% endif %}
+
+  <!-- File integrity monitoring -->
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>{{ wazuh_syscheck_frequency }}</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <directories realtime="yes" check_all="yes">/etc,/usr/bin,/usr/sbin</directories>
+    <directories realtime="yes" check_all="yes">/bin,/sbin,/boot</directories>
+    <ignore>/etc/mtab</ignore>
+    <ignore>/etc/hosts.deny</ignore>
+    <ignore>/etc/random-seed</ignore>
+    <ignore>/etc/adjtime</ignore>
+    <skip_nfs>yes</skip_nfs>
+    <skip_dev>yes</skip_dev>
+    <skip_proc>yes</skip_proc>
+    <skip_sys>yes</skip_sys>
+  </syscheck>
+
+  <!-- Rootcheck -->
+  <rootcheck>
+    <disabled>{{ 'no' if wazuh_rootcheck_enabled == 'yes' else 'yes' }}</disabled>
+    <frequency>{{ wazuh_syscheck_frequency }}</frequency>
+  </rootcheck>
+
+  <!-- Security Configuration Assessment -->
+  <sca>
+    <enabled>{{ wazuh_sca_enabled }}</enabled>
+    <scan_on_start>yes</scan_on_start>
+    <interval>12h</interval>
+    <skip_nfs>yes</skip_nfs>
+  </sca>
+
+  <!-- Log collection -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/syslog</location>
+  </localfile>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/auth.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/dpkg.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>audit</log_format>
+    <location>/var/log/audit/audit.log</location>
+  </localfile>
+
+  <!-- Active response -->
+  <active-response>
+    <disabled>no</disabled>
+  </active-response>
+
+</ossec_config>

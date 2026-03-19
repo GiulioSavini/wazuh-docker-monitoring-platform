@@ -1,0 +1,84 @@
+---
+# Remove/Decommission Wazuh Agent
+# Uninstalls agent from target and removes from manager.
+#
+# Usage:
+#   ansible-playbook -i inventories/production playbooks/remove-agent.yml \
+#       --limit web-prod-01
+
+- name: Remove Wazuh agent from Linux hosts
+  hosts: linux_servers:docker_hosts
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Get agent ID before removal
+      ansible.builtin.command:
+        cmd: grep -oP '^\d+' /var/ossec/etc/client.keys
+      register: agent_id
+      changed_when: false
+      failed_when: false
+
+    - name: Stop agent service
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Uninstall agent (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: wazuh-agent
+        state: absent
+        purge: true
+      when: ansible_os_family == "Debian"
+
+    - name: Uninstall agent (RedHat)
+      ansible.builtin.yum:
+        name: wazuh-agent
+        state: absent
+      when: ansible_os_family == "RedHat"
+
+    - name: Remove agent directories
+      ansible.builtin.file:
+        path: /var/ossec
+        state: absent
+
+    - name: Remove logrotate config
+      ansible.builtin.file:
+        path: /etc/logrotate.d/wazuh-agent
+        state: absent
+
+    - name: Remove from manager
+      ansible.builtin.command:
+        cmd: "docker exec wazuh-manager /var/ossec/bin/manage_agents -r {{ agent_id.stdout }}"
+      delegate_to: localhost
+      become: false
+      when: agent_id.stdout is defined and agent_id.stdout | length > 0
+      ignore_errors: true
+
+    - name: Report removal
+      ansible.builtin.debug:
+        msg: "Agent {{ agent_id.stdout | default('unknown') }} removed from {{ inventory_hostname }}"
+
+- name: Remove Wazuh agent from Windows hosts
+  hosts: windows_servers
+  gather_facts: true
+
+  tasks:
+    - name: Stop service
+      ansible.windows.win_service:
+        name: WazuhSvc
+        state: stopped
+      ignore_errors: true
+
+    - name: Uninstall agent
+      ansible.windows.win_package:
+        product_id: "Wazuh Agent"
+        arguments: /q
+        state: absent
+
+    - name: Remove install directory
+      ansible.windows.win_file:
+        path: 'C:\Program Files (x86)\ossec-agent'
+        state: absent

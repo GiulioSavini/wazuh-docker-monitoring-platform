@@ -1,0 +1,6 @@
+# Dependencies for utility scripts
+# vcenter_event_export.py
+pyvmomi>=8.0
+
+# network_discovery.py (--inventory flag)
+PyYAML>=6.0

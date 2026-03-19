@@ -1,0 +1,328 @@
+<!--
+  Custom Wazuh Rules — Linux Security Monitoring
+  Rule IDs: 100500–100599
+  Detects privilege escalation, suspicious processes, persistence mechanisms,
+  credential access, and lateral movement on Linux hosts.
+-->
+<group name="linux,security,">
+
+  <!-- ===================== SSH Brute Force & Auth ===================== -->
+
+  <rule id="100500" level="8">
+    <if_sid>5710</if_sid>
+    <match>Failed password</match>
+    <regex>from \S+</regex>
+    <description>Linux: SSH failed password from $(srcip)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>linux_auth,ssh,</group>
+  </rule>
+
+  <rule id="100501" level="12" frequency="8" timeframe="120">
+    <if_matched_sid>100500</if_matched_sid>
+    <same_source_ip/>
+    <description>Linux: SSH brute force — 8+ failed logins from $(srcip) in 2 minutes</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>linux_auth,ssh,</group>
+  </rule>
+
+  <rule id="100502" level="10">
+    <if_sid>5715</if_sid>
+    <match>Accepted password</match>
+    <description>Linux: SSH login accepted (password) for $(dstuser) from $(srcip). Consider enforcing key-only auth.</description>
+    <group>linux_auth,ssh,</group>
+  </rule>
+
+  <rule id="100503" level="12">
+    <if_sid>5715</if_sid>
+    <match>Accepted</match>
+    <user>root</user>
+    <description>Linux: direct root SSH login from $(srcip). This should be disabled.</description>
+    <mitre>
+      <id>T1078.003</id>
+    </mitre>
+    <group>linux_auth,ssh,</group>
+  </rule>
+
+  <rule id="100504" level="10">
+    <if_sid>5715</if_sid>
+    <match>Accepted</match>
+    <time>22:00-06:00</time>
+    <description>Linux: SSH login outside business hours — $(dstuser) from $(srcip)</description>
+    <group>linux_auth,ssh,</group>
+  </rule>
+
+  <!-- ===================== Privilege Escalation ===================== -->
+
+  <rule id="100510" level="8">
+    <if_sid>5401</if_sid>
+    <match>sudo</match>
+    <regex>COMMAND=</regex>
+    <description>Linux: sudo command executed by $(srcuser) → $(dstuser): $(data)</description>
+    <group>linux_privesc,sudo,</group>
+  </rule>
+
+  <rule id="100511" level="12">
+    <if_sid>100510</if_sid>
+    <match>COMMAND=/bin/bash|COMMAND=/bin/sh|COMMAND=/usr/bin/su</match>
+    <description>Linux: interactive shell via sudo by $(srcuser). Potential privilege escalation.</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>linux_privesc,sudo,</group>
+  </rule>
+
+  <rule id="100512" level="10">
+    <if_sid>5405</if_sid>
+    <match>NOT in sudoers</match>
+    <description>Linux: unauthorized sudo attempt by $(srcuser) — user not in sudoers</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>linux_privesc,sudo,</group>
+  </rule>
+
+  <rule id="100513" level="14" frequency="5" timeframe="60">
+    <if_matched_sid>100512</if_matched_sid>
+    <same_source_ip/>
+    <description>Linux: repeated unauthorized sudo attempts — possible privilege escalation attack</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>linux_privesc,sudo,</group>
+  </rule>
+
+  <rule id="100514" level="12">
+    <if_sid>5303</if_sid>
+    <match>setuid|setgid|chmod.*4[0-7]{3}|chmod.*2[0-7]{3}</match>
+    <description>Linux: SUID/SGID bit set on file — $(file)</description>
+    <mitre>
+      <id>T1548.001</id>
+    </mitre>
+    <group>linux_privesc,</group>
+  </rule>
+
+  <!-- ===================== Suspicious Processes ===================== -->
+
+  <rule id="100520" level="12">
+    <if_sid>80700</if_sid>
+    <match>nc -l|ncat -l|socat |/dev/tcp/</match>
+    <description>Linux: reverse shell or bind shell tool detected — $(data)</description>
+    <mitre>
+      <id>T1059.004</id>
+    </mitre>
+    <group>linux_process,</group>
+  </rule>
+
+  <rule id="100521" level="10">
+    <if_sid>80700</if_sid>
+    <match>base64 -d|base64 --decode|python.*-c.*import|perl -e</match>
+    <description>Linux: encoded/obfuscated command execution detected — $(data)</description>
+    <mitre>
+      <id>T1027</id>
+    </mitre>
+    <group>linux_process,</group>
+  </rule>
+
+  <rule id="100522" level="12">
+    <if_sid>80700</if_sid>
+    <match>curl.*|.*sh|wget.*|.*sh|curl.*|.*bash|wget.*|.*bash</match>
+    <description>Linux: download-and-execute pattern detected — $(data)</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>linux_process,</group>
+  </rule>
+
+  <rule id="100523" level="10">
+    <if_sid>80700</if_sid>
+    <match>tcpdump|tshark|wireshark|ettercap</match>
+    <description>Linux: network sniffing tool executed — $(data)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+    <group>linux_process,</group>
+  </rule>
+
+  <rule id="100524" level="12">
+    <if_sid>80700</if_sid>
+    <match>iptables -F|iptables --flush|ufw disable|systemctl stop firewalld</match>
+    <description>Linux: firewall disabled or flushed — $(data)</description>
+    <mitre>
+      <id>T1562.004</id>
+    </mitre>
+    <group>linux_process,</group>
+  </rule>
+
+  <!-- ===================== Persistence Mechanisms ===================== -->
+
+  <rule id="100530" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/crontab|/var/spool/cron|/etc/cron</match>
+    <description>Linux: crontab modified — possible persistence mechanism</description>
+    <mitre>
+      <id>T1053.003</id>
+    </mitre>
+    <group>linux_persistence,</group>
+  </rule>
+
+  <rule id="100531" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/systemd/system|/usr/lib/systemd/system</match>
+    <description>Linux: systemd unit file modified — possible persistence via service</description>
+    <mitre>
+      <id>T1543.002</id>
+    </mitre>
+    <group>linux_persistence,</group>
+  </rule>
+
+  <rule id="100532" level="10">
+    <if_sid>550</if_sid>
+    <match>.bashrc|.bash_profile|.profile|/etc/profile|/etc/bash.bashrc</match>
+    <description>Linux: shell profile modified — possible persistence via shell init</description>
+    <mitre>
+      <id>T1546.004</id>
+    </mitre>
+    <group>linux_persistence,</group>
+  </rule>
+
+  <rule id="100533" level="12">
+    <if_sid>550</if_sid>
+    <match>/etc/ld.so.preload|/etc/ld.so.conf</match>
+    <description>Linux: dynamic linker config modified — possible LD_PRELOAD hijacking</description>
+    <mitre>
+      <id>T1574.006</id>
+    </mitre>
+    <group>linux_persistence,</group>
+  </rule>
+
+  <rule id="100534" level="10">
+    <if_sid>550</if_sid>
+    <match>.ssh/authorized_keys</match>
+    <description>Linux: SSH authorized_keys modified — possible persistence via SSH key</description>
+    <mitre>
+      <id>T1098.004</id>
+    </mitre>
+    <group>linux_persistence,ssh,</group>
+  </rule>
+
+  <!-- ===================== User & Group Changes ===================== -->
+
+  <rule id="100540" level="8">
+    <if_sid>5901</if_sid>
+    <match>useradd|adduser</match>
+    <description>Linux: new user created — $(data)</description>
+    <mitre>
+      <id>T1136.001</id>
+    </mitre>
+    <group>linux_account,</group>
+  </rule>
+
+  <rule id="100541" level="10">
+    <if_sid>5901</if_sid>
+    <match>usermod.*-aG.*sudo|usermod.*-aG.*wheel|usermod.*-aG.*root</match>
+    <description>Linux: user added to privileged group (sudo/wheel/root) — $(data)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>linux_account,</group>
+  </rule>
+
+  <rule id="100542" level="8">
+    <if_sid>5901</if_sid>
+    <match>passwd</match>
+    <description>Linux: password changed for user — $(data)</description>
+    <group>linux_account,</group>
+  </rule>
+
+  <rule id="100543" level="12">
+    <if_sid>5901</if_sid>
+    <match>userdel|deluser</match>
+    <description>Linux: user deleted — $(data). Check if authorized.</description>
+    <group>linux_account,</group>
+  </rule>
+
+  <!-- ===================== Kernel & Modules ===================== -->
+
+  <rule id="100550" level="10">
+    <if_sid>80700</if_sid>
+    <match>insmod |modprobe |rmmod </match>
+    <description>Linux: kernel module loaded/unloaded — $(data)</description>
+    <mitre>
+      <id>T1547.006</id>
+    </mitre>
+    <group>linux_kernel,</group>
+  </rule>
+
+  <rule id="100551" level="12">
+    <if_sid>80700</if_sid>
+    <match>sysctl -w|sysctl --system</match>
+    <description>Linux: kernel parameter modified at runtime — $(data)</description>
+    <group>linux_kernel,</group>
+  </rule>
+
+  <!-- ===================== Credential Access ===================== -->
+
+  <rule id="100560" level="14">
+    <if_sid>550</if_sid>
+    <match>/etc/shadow|/etc/passwd|/etc/gshadow</match>
+    <description>Linux: credential file accessed or modified — $(file)</description>
+    <mitre>
+      <id>T1003.008</id>
+    </mitre>
+    <group>linux_credential,</group>
+  </rule>
+
+  <rule id="100561" level="12">
+    <if_sid>80700</if_sid>
+    <match>mimipenguin|lazagne|linpeas|pspy|linux-exploit-suggester</match>
+    <description>Linux: known post-exploitation tool detected — $(data)</description>
+    <mitre>
+      <id>T1003</id>
+    </mitre>
+    <group>linux_credential,</group>
+  </rule>
+
+  <!-- ===================== File Integrity: Critical Paths ===================== -->
+
+  <rule id="100570" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/sudoers</match>
+    <description>Linux: sudoers file modified — review changes immediately</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>linux_fim,</group>
+  </rule>
+
+  <rule id="100571" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/pam.d/</match>
+    <description>Linux: PAM configuration modified — potential auth bypass</description>
+    <mitre>
+      <id>T1556.003</id>
+    </mitre>
+    <group>linux_fim,</group>
+  </rule>
+
+  <rule id="100572" level="8">
+    <if_sid>550</if_sid>
+    <match>/etc/resolv.conf|/etc/hosts</match>
+    <description>Linux: DNS/hosts file modified — possible DNS hijacking</description>
+    <mitre>
+      <id>T1565.001</id>
+    </mitre>
+    <group>linux_fim,</group>
+  </rule>
+
+  <rule id="100573" level="10">
+    <if_sid>550</if_sid>
+    <match>/etc/ssh/sshd_config</match>
+    <description>Linux: SSH daemon configuration modified — verify changes</description>
+    <group>linux_fim,ssh,</group>
+  </rule>
+
+</group>

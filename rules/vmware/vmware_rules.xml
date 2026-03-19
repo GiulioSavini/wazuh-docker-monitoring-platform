@@ -1,0 +1,137 @@
+<!--
+  Custom Wazuh Rules — VMware vCenter / ESXi Monitoring
+  Rule IDs: 100200–100299
+  Parses syslog events from vCenter and ESXi hosts.
+-->
+<group name="vmware,vcenter,esxi,">
+
+  <!-- ===================== VM Power State ===================== -->
+
+  <rule id="100200" level="3">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmPoweredOnEvent</match>
+    <description>VMware: VM powered on — $(vmware.vm_name)</description>
+    <group>vmware_lifecycle,</group>
+  </rule>
+
+  <rule id="100201" level="3">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmPoweredOffEvent</match>
+    <description>VMware: VM powered off — $(vmware.vm_name)</description>
+    <group>vmware_lifecycle,</group>
+  </rule>
+
+  <rule id="100202" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmSuspendedEvent</match>
+    <description>VMware: VM suspended — $(vmware.vm_name)</description>
+    <group>vmware_lifecycle,</group>
+  </rule>
+
+  <rule id="100203" level="3">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmReconfiguredEvent</match>
+    <description>VMware: VM reconfigured — $(vmware.vm_name)</description>
+    <group>vmware_config,</group>
+  </rule>
+
+  <!-- ===================== Snapshots ===================== -->
+
+  <rule id="100210" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmCreatingSnapshotEvent|TaskEvent.*CreateSnapshot</match>
+    <description>VMware: snapshot created for VM — $(vmware.vm_name)</description>
+    <group>vmware_snapshot,</group>
+  </rule>
+
+  <rule id="100211" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmRemovingSnapshotEvent|TaskEvent.*RemoveSnapshot</match>
+    <description>VMware: snapshot removed from VM — $(vmware.vm_name)</description>
+    <group>vmware_snapshot,</group>
+  </rule>
+
+  <rule id="100212" level="8">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmRevertingToSnapshotEvent|TaskEvent.*RevertToSnapshot</match>
+    <description>VMware: VM reverted to snapshot — $(vmware.vm_name). Possible incident recovery or unauthorized rollback.</description>
+    <group>vmware_snapshot,</group>
+  </rule>
+
+  <!-- ===================== Host Connectivity ===================== -->
+
+  <rule id="100220" level="10">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>HostConnectionLostEvent</match>
+    <description>VMware: ESXi host connection lost — $(vmware.host_name)</description>
+    <group>vmware_host,</group>
+  </rule>
+
+  <rule id="100221" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>HostConnectedEvent</match>
+    <description>VMware: ESXi host reconnected — $(vmware.host_name)</description>
+    <group>vmware_host,</group>
+  </rule>
+
+  <rule id="100222" level="8">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>EnteredMaintenanceModeEvent</match>
+    <description>VMware: ESXi host entered maintenance mode — $(vmware.host_name)</description>
+    <group>vmware_host,</group>
+  </rule>
+
+  <!-- ===================== vMotion ===================== -->
+
+  <rule id="100230" level="3">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>VmMigratedEvent|DrsVmMigratedEvent</match>
+    <description>VMware: VM migrated (vMotion) — $(vmware.vm_name)</description>
+    <group>vmware_vmotion,</group>
+  </rule>
+
+  <!-- ===================== Alarms ===================== -->
+
+  <rule id="100240" level="8">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>AlarmStatusChangedEvent.*red</match>
+    <description>VMware: alarm triggered (RED) — $(vmware.alarm_name)</description>
+    <group>vmware_alarm,</group>
+  </rule>
+
+  <rule id="100241" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>AlarmStatusChangedEvent.*yellow</match>
+    <description>VMware: alarm warning (YELLOW) — $(vmware.alarm_name)</description>
+    <group>vmware_alarm,</group>
+  </rule>
+
+  <!-- ===================== Authentication ===================== -->
+
+  <rule id="100250" level="5">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>UserLoginSessionEvent</match>
+    <description>VMware: user login to vCenter — $(vmware.user)</description>
+    <group>vmware_auth,</group>
+  </rule>
+
+  <rule id="100251" level="8">
+    <decoded_as>vmware-vcenter</decoded_as>
+    <match>BadUsernameSessionEvent|InvalidLogin</match>
+    <description>VMware: failed login attempt to vCenter — $(vmware.user)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>vmware_auth,</group>
+  </rule>
+
+  <rule id="100252" level="12" frequency="5" timeframe="120">
+    <if_matched_sid>100251</if_matched_sid>
+    <description>VMware: brute force detected — multiple failed logins to vCenter</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>vmware_auth,</group>
+  </rule>
+
+</group>
