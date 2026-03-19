@@ -11,7 +11,7 @@ jobs:
     name: YAML Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install yamllint
         run: pip install yamllint
       - name: Lint YAML files
@@ -23,7 +23,7 @@ jobs:
     name: Ansible Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install ansible-lint
         run: pip install ansible-lint ansible
       - name: Lint Ansible playbooks and roles
@@ -34,7 +34,7 @@ jobs:
     name: Validate Wazuh Rules XML
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install xmllint
         run: sudo apt-get install -y libxml2-utils
       - name: Validate XML rule files
@@ -46,8 +46,8 @@ jobs:
     name: Python Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install ruff
@@ -59,7 +59,7 @@ jobs:
     name: Shell Script Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install shellcheck
         run: sudo apt-get install -y shellcheck
       - name: Lint shell scripts
@@ -70,6 +70,6 @@ jobs:
     name: Docker Compose Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate docker-compose.yml
         run: docker compose config --quiet
