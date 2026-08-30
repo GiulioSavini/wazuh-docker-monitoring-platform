@@ -82,7 +82,7 @@ docker compose start wazuh-manager 2>/dev/null || docker start wazuh-manager 2>/
 
 # Wait for manager to be ready
 log "Waiting for manager to start..."
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
     if docker exec wazuh-manager /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "is running"; then
         break
     fi

@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 try:
-    from pyVim.connect import SmartConnect, Disconnect
+    from pyVim.connect import Disconnect, SmartConnect
     from pyVmomi import vim
 except ImportError:
     log.error("pyvmomi is required: pip install pyvmomi")

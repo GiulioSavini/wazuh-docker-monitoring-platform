@@ -75,7 +75,7 @@ def resolve_hostname(ip: str) -> str:
     """Reverse DNS lookup — non-blocking, short timeout."""
     try:
         return socket.gethostbyaddr(ip)[0]
-    except (socket.herror, socket.timeout, OSError):
+    except (TimeoutError, socket.herror, OSError):
         return ""
 
 
@@ -96,6 +96,8 @@ def ping_host(ip: str) -> bool:
             ["ping", "-c", "1", "-W", "1", str(ip)],
             capture_output=True,
             timeout=3,
+            # An unreachable host is the expected case, not an error.
+            check=False,
         )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -231,11 +233,15 @@ def output_json(hosts: list[DiscoveredHost], filepath: str | None):
         print(content)
 
 
-def output_csv(hosts: list[DiscoveredHost], filepath: str | None):
-    """Write results as CSV."""
-    buf = io.StringIO() if not filepath else open(filepath, "w", newline="")
-    writer = csv.writer(buf)
-    writer.writerow(["ip", "hostname", "os_hint", "open_ports", "services", "wazuh_agent", "suggested_group", "scan_time"])
+CSV_HEADER = [
+    "ip", "hostname", "os_hint", "open_ports", "services",
+    "wazuh_agent", "suggested_group", "scan_time",
+]
+
+
+def _write_csv(stream, hosts: list[DiscoveredHost]) -> None:
+    writer = csv.writer(stream)
+    writer.writerow(CSV_HEADER)
     for h in hosts:
         writer.writerow([
             h.ip, h.hostname, h.os_hint,
@@ -245,12 +251,20 @@ def output_csv(hosts: list[DiscoveredHost], filepath: str | None):
             h.suggested_group,
             h.scan_time,
         ])
+
+
+def output_csv(hosts: list[DiscoveredHost], filepath: str | None):
+    """Write results as CSV to a file, or to stdout when no path is given."""
+    # Both branches use a context manager: the previous version closed the file
+    # only on the success path, so an exception mid-scan left it open.
     if filepath:
-        buf.close()
+        with open(filepath, "w", newline="") as handle:
+            _write_csv(handle, hosts)
         log.info("CSV output written to %s", filepath)
     else:
-        print(buf.getvalue())
-        buf.close()
+        with io.StringIO() as buf:
+            _write_csv(buf, hosts)
+            print(buf.getvalue())
 
 
 def main():
