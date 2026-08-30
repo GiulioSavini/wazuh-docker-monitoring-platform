@@ -26,6 +26,11 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install ansible-lint
         run: pip install ansible-lint ansible
+      # Without the collections installed, ansible-lint cannot resolve
+      # ansible.windows or community.general and reports every task that uses
+      # them as an unknown module.
+      - name: Install collection dependencies
+        run: ansible-galaxy collection install -r ansible/requirements.yml
       - name: Lint Ansible playbooks and roles
         working-directory: ansible
         run: ansible-lint playbooks/ roles/

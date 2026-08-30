@@ -1,0 +1,8 @@
+---
+skip_list:
+  # Variables here are namespaced by product (wazuh_agent_version,
+  # wazuh_manager_ip) rather than by role directory. Applying the rule
+  # literally would give wazuh_agent_linux_wazuh_manager_ip, which costs the
+  # person writing inventory more than the collision it prevents — every
+  # variable in this repository already starts with wazuh_.
+  - var-naming[no-role-prefix]
