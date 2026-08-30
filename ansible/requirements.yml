@@ -1,0 +1,9 @@
+---
+# The playbooks call ansible.windows and community.general modules. Nothing
+# declared them, so a fresh checkout failed with "couldn't resolve
+# module/action" the first time it ran against a Windows host.
+collections:
+  - name: ansible.windows
+    version: ">=2.0.0"
+  - name: community.general
+    version: ">=8.0.0"
