@@ -1,4 +1,4 @@
-# Defaults for wazuh-agent-windows role
+# Defaults for the wazuh_agent_windows role
 wazuh_agent_version: "4.9.0"
 wazuh_manager_ip: "10.0.1.10"
 wazuh_manager_port: 1514

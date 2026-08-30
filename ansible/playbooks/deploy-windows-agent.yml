@@ -15,7 +15,7 @@
         fail_msg: "Required variables must be defined"
 
   roles:
-    - role: wazuh-agent-windows
+    - role: wazuh_agent_windows
 
   post_tasks:
     - name: Verify agent service

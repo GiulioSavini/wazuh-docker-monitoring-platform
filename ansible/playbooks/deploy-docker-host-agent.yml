@@ -49,7 +49,7 @@
       notify: Reload auditd
 
   roles:
-    - role: wazuh-agent-linux
+    - role: wazuh_agent_linux
 
   handlers:
     - name: Restart Docker
