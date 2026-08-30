@@ -29,22 +29,22 @@
   2. Create a log sink to route audit logs to the topic:
      gcloud logging sinks create wazuh-audit-sink \
        pubsub.googleapis.com/projects/my-gcp-project-id/topics/wazuh-audit-logs \
-       --log-filter='logName:"cloudaudit.googleapis.com"'
+       -log-filter='logName:"cloudaudit.googleapis.com"'
 
   3. Create a subscription:
      gcloud pubsub subscriptions create wazuh-audit-log-sub \
-       --topic=wazuh-audit-logs \
-       --ack-deadline=60
+       -topic=wazuh-audit-logs \
+       -ack-deadline=60
 
   4. Create a service account with Pub/Sub Subscriber role:
      gcloud iam service-accounts create wazuh-pubsub-reader
      gcloud projects add-iam-policy-binding my-gcp-project-id \
-       --member="serviceAccount:wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com" \
-       --role="roles/pubsub.subscriber"
+       -member="serviceAccount:wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com" \
+       -role="roles/pubsub.subscriber"
 
   5. Download the service account key:
      gcloud iam service-accounts keys create gcp-credentials.json \
-       --iam-account=wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com
+       -iam-account=wazuh-pubsub-reader@my-gcp-project-id.iam.gserviceaccount.com
 
   6. Copy gcp-credentials.json to the Wazuh manager:
      docker cp gcp-credentials.json wazuh-manager:/var/ossec/etc/gcp-credentials.json
