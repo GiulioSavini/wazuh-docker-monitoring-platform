@@ -19,7 +19,7 @@ jobs:
         run: |
           pip install yamllint ruff
           sudo apt-get update -qq
-          sudo apt-get install -y -qq shellcheck libxml2-utils
+          sudo apt-get install -y -qq shellcheck
 
       - name: YAML
         run: |
@@ -33,7 +33,7 @@ jobs:
         run: find scripts/ -name '*.sh' -exec shellcheck -S warning {} +
 
       - name: Wazuh rule XML
-        run: find rules/ -name '*.xml' -exec xmllint --noout {} +
+        run: ./scripts/validate-rules-xml.py
 
       - name: Docker Compose
         run: docker compose config --quiet
